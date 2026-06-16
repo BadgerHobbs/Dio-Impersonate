@@ -1,0 +1,8 @@
+# Dart / pub
+.dart_tool/
+.packages
+pubspec.lock
+build/
+
+# Provisioned native libraries (downloaded by tool/install.dart)
+.native/

@@ -23,13 +23,17 @@ const Map<Abi, String> _assetSuffixByAbi = {
   Abi.linuxArm64: 'aarch64-linux-gnu',
 };
 
-const List<String> _libraryNames = [
-  'libcurl-impersonate.dll',
-  'libcurl-impersonate.dylib',
-  'libcurl-impersonate.4.dylib',
-  'libcurl-impersonate.so',
-  'libcurl-impersonate.so.4',
-];
+/// Whether [base] is a `libcurl-impersonate` shared-library file name for this
+/// platform. Matches versioned variants (the Linux/macOS releases ship the real
+/// library as e.g. `libcurl-impersonate.so.4.8.0`, with `.so`/`.so.4` symlinks)
+/// while excluding the `.a`/`.la` static-library siblings.
+bool _matchesLibrary(String base) {
+  if (Platform.isWindows) return base == 'libcurl-impersonate.dll';
+  if (Platform.isMacOS) {
+    return base.startsWith('libcurl-impersonate') && base.endsWith('.dylib');
+  }
+  return base.startsWith('libcurl-impersonate.so');
+}
 
 Future<void> main(List<String> args) async {
   final version = args.isNotEmpty ? args[0] : _defaultVersion;
@@ -51,7 +55,7 @@ Future<void> main(List<String> args) async {
   // Reuse an existing extracted copy if present.
   final existing = _findLibrary(destDir);
   if (existing != null) {
-    stdout.writeln(existing.path);
+    stdout.writeln(existing);
     return;
   }
 
@@ -81,17 +85,26 @@ Future<void> main(List<String> args) async {
     return;
   }
 
-  stdout.writeln(library.path);
+  stdout.writeln(library);
 }
 
-File? _findLibrary(Directory root) {
+String? _findLibrary(Directory root) {
   if (!root.existsSync()) return null;
+
+  final matches = <String>[];
   for (final entity in root.listSync(recursive: true, followLinks: false)) {
-    if (entity is File && _libraryNames.contains(_baseName(entity.path))) {
-      return entity;
+    final base = _baseName(entity.path);
+    // Match by name regardless of entity type so symlinks (Link, not File) are
+    // considered; existsSync() follows the link and confirms a real target.
+    if (_matchesLibrary(base) && File(entity.path).existsSync()) {
+      matches.add(entity.path);
     }
   }
-  return null;
+  if (matches.isEmpty) return null;
+
+  // Prefer the shortest base name — the unversioned `.so`/`.dylib` soname.
+  matches.sort((a, b) => _baseName(a).length.compareTo(_baseName(b).length));
+  return matches.first;
 }
 
 String _baseName(String path) =>

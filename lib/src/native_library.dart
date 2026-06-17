@@ -42,8 +42,17 @@ bool _matchesLibrary(String base) {
 String? _findLibraryIn(Directory dir, {required bool recursive}) {
   if (!dir.existsSync()) return null;
 
+  final List<FileSystemEntity> entities;
+  try {
+    entities = dir.listSync(recursive: recursive, followLinks: false);
+  } on FileSystemException {
+    // Some directories (e.g. an app sandbox's root on Android) can't be listed;
+    // treat them as having no match rather than crashing the search.
+    return null;
+  }
+
   final matches = <String>[];
-  for (final entity in dir.listSync(recursive: recursive, followLinks: false)) {
+  for (final entity in entities) {
     final base = _baseName(entity.path);
     // Match by name regardless of entity type so symlinks (Link, not File) are
     // considered; existsSync() follows the link and confirms a real target.
@@ -102,6 +111,13 @@ String resolveLibraryPath({String? explicit, bool requireExisting = false}) {
   if (envPath != null && envPath.isNotEmpty) {
     if (File(envPath).existsSync()) return envPath;
     searched.add(envPath);
+  }
+
+  // On Android the library ships inside the APK and is loaded by soname from
+  // the app's native library dir; the sandbox can't list arbitrary directories,
+  // so skip the filesystem scan and let the OS loader resolve the bare name.
+  if (Platform.isAndroid) {
+    return _canonicalLibraryName();
   }
 
   for (final dir in _baseDirectories()) {

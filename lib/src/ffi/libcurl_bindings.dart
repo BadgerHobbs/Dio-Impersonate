@@ -1,4 +1,5 @@
 import 'dart:ffi' as ffi;
+import 'dart:io' show Platform;
 
 import 'package:ffi/ffi.dart';
 
@@ -127,7 +128,7 @@ typedef CurlIoCallbackNative = ffi.Size Function(
 
 /// Loads `libcurl-impersonate` and exposes the symbols this package uses.
 class LibCurl {
-  LibCurl(String path) : _lib = ffi.DynamicLibrary.open(path) {
+  LibCurl(String path) : _lib = _load(path) {
     _globalInit = _lib
         .lookupFunction<_GlobalInitNative, _GlobalInitDart>('curl_global_init');
     easyInit = _lib
@@ -157,6 +158,20 @@ class LibCurl {
             'curl_easy_getinfo');
 
     _globalInit(curlGlobalDefault);
+  }
+
+  /// Opens the library for the current platform.
+  ///
+  /// On iOS the library is linked statically into the app binary (shipped as an
+  /// xcframework), so its symbols live in the running process rather than a
+  /// loadable file — resolve them with [ffi.DynamicLibrary.process]. Everywhere
+  /// else (desktop, Android) the library is a real shared object opened by path
+  /// or soname. NOTE: the iOS path is not yet validated on-device.
+  static ffi.DynamicLibrary _load(String path) {
+    if (Platform.isIOS) {
+      return ffi.DynamicLibrary.process();
+    }
+    return ffi.DynamicLibrary.open(path);
   }
 
   final ffi.DynamicLibrary _lib;

@@ -70,13 +70,25 @@ PLIST
 }
 
 xcargs=()
+declare -A SLICE_FW
 for sdk in $SDKS; do
   fw="$(build_framework "$sdk")"
   xcargs+=(-framework "$fw")
+  SLICE_FW[$sdk]="$fw"
 done
 
+# Emit a bare .framework (simulator slice preferred) for single-slice consumers
+# that vendor a .framework directly — this avoids CocoaPods' xcframework
+# slice-extraction phase, which doesn't run reliably under the app's setup.
+bare_sdk="iphonesimulator"
+[ -n "${SLICE_FW[$bare_sdk]:-}" ] || bare_sdk="$(echo "$SDKS" | awk '{print $1}')"
+rm -rf "$OUT/$FW_NAME.framework"
+cp -R "${SLICE_FW[$bare_sdk]}" "$OUT/$FW_NAME.framework"
+
+# Also emit the .xcframework (needed once device + simulator slices are built).
 rm -rf "$OUT/$FW_NAME.xcframework"
 xcodebuild -create-xcframework "${xcargs[@]}" -output "$OUT/$FW_NAME.xcframework"
 
 echo "=== output ==="
-ls -R "$OUT/$FW_NAME.xcframework"
+ls "$OUT"
+ls -R "$OUT/$FW_NAME.framework"

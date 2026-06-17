@@ -1,5 +1,12 @@
 # Dio-Impersonate
 
+> [!WARNING]
+> **Deprecated and archived.** This transport has been folded into
+> [BinDays-Client](https://github.com/BadgerHobbs/BinDays-Client) (see its
+> `lib/src/transport/` and the `transport.dart` export) so the BinDays app and
+> API integration tests share a single library. This repository is no longer
+> maintained.
+
 Browser **TLS/JA3 + HTTP/2 impersonation** for the Dart [Dio](https://pub.dev/packages/dio)
 HTTP client — the Dio equivalent of
 [curl-impersonate](https://github.com/lexiforest/curl-impersonate).
